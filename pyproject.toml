@@ -1,0 +1,13 @@
+[project]
+name = "kms-agent"
+version = "0.1.0"
+description = "KMS content automation agent (hackathon MVP)"
+requires-python = ">=3.10"
+dependencies = [
+    "openai>=1.0",
+    "notion-client>=2.2",
+    "trafilatura>=1.12",
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+    "feedparser>=6.0",
+]
