@@ -5,3 +5,7 @@ __pycache__/
 .venv/
 .python-version
 .DS_Store
+kms.db
+node_modules/
+dist/
+.claude/

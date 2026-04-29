@@ -3,25 +3,14 @@ import json
 import re
 
 from kms._llm import client, model
-
-SYSTEM_PROMPT = """\
-당신은 HR/조직 도메인 리서치 어시스턴트다. 주어진 한국어 주제어에 대해
-관련 검색용 키워드를 영문 3-5개, 한국어 3-5개 추출한다.
-
-규칙:
-- 주제의 동의어, 하위 개념, 인접 개념을 포함
-- 너무 일반적인 단어(예: "회사", "직원")는 제외
-- 영문은 lowercase, 따옴표 없는 단어/구
-- 출력은 JSON만. 다른 설명 금지.
-- 형식: {"en": ["...", ...], "ko": ["...", ...]}
-"""
+from kms._prompts import load as load_prompt
 
 
 def extract_keywords(topic: str) -> dict[str, list[str]]:
     resp = client().chat.completions.create(
         model=model(),
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": load_prompt("keyword_extract")},
             {"role": "user", "content": topic},
         ],
     )
