@@ -1,5 +1,7 @@
 """FastAPI server for the KMS dashboard. Local-only (127.0.0.1)."""
+import sys
 import threading
+import traceback
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -59,7 +61,7 @@ def _execute(topic: str, top_k: int) -> None:
         if action:
             notify_draft(topic, action, result["notion_url"])
     except Exception:
-        pass
+        traceback.print_exc(file=sys.stderr)
     finally:
         if _run_lock.locked():
             _run_lock.release()

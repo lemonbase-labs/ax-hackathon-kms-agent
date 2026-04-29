@@ -1,14 +1,12 @@
 """Slack incoming webhook notifier.
 
-Silent skip when SLACK_WEBHOOK_URL is unset; logs and swallows on HTTP failure
-so the pipeline never dies due to a notification problem.
+Silent skip when SLACK_WEBHOOK_URL is unset; logs to stderr and swallows on
+HTTP failure so the pipeline never dies due to a notification problem.
 """
-import logging
 import os
+import sys
 
 import requests
-
-logger = logging.getLogger(__name__)
 
 TIMEOUT_S = 5
 
@@ -78,4 +76,4 @@ def _post(text: str) -> None:
         resp = requests.post(webhook, json={"text": text}, timeout=TIMEOUT_S)
         resp.raise_for_status()
     except requests.RequestException as e:
-        logger.warning("Slack notify failed: %s", e)
+        print(f"Slack notify failed: {e}", file=sys.stderr, flush=True)
