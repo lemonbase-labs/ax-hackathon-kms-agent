@@ -120,21 +120,24 @@ function PayloadView({
           rss={payload.rss_count as number}
           en={payload.serper_en_count as number}
           ko={payload.serper_ko_count as number}
-          total={payload.total as number}
+          totalCandidates={
+            (payload.total_candidates ?? payload.total) as number
+          }
+          newCount={payload.new_count as number | undefined}
           list={payload.candidates as { title: string; url: string; source: string }[]}
         />
       );
     case 3:
       return (
-        <Stat label="추출 성공/실패">
+        <Stat label="신규 후보 추출 성공/실패">
           {payload.extracted as number} / {payload.failed as number}
         </Stat>
       );
     case 4:
       return (
-        <Selected
+        <Scored
           items={
-            payload.selected as {
+            (payload.scored ?? payload.selected) as {
               url: string;
               title: string;
               score: number;
@@ -148,19 +151,20 @@ function PayloadView({
         <DraftPreview
           chars={payload.chars as number}
           draft={payload.draft as string}
+          docCount={payload.doc_count as number | undefined}
+          trigger={
+            payload.trigger as
+              | { delta?: number; draft_eligible_total?: number; last_drafted?: number }
+              | undefined
+          }
         />
       );
     case 6:
       return (
-        <a
-          href={payload.page_url as string}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-2 text-accent hover:underline text-sm"
-        >
-          {payload.page_url as string}
-          <span aria-hidden>↗</span>
-        </a>
+        <NotionLink
+          pageUrl={payload.page_url as string}
+          draftReplaced={payload.draft_replaced as boolean | undefined}
+        />
       );
     default:
       return null;
@@ -198,23 +202,33 @@ function Candidates({
   rss,
   en,
   ko,
-  total,
+  totalCandidates,
+  newCount,
   list,
 }: {
   rss: number;
   en: number;
   ko: number;
-  total: number;
+  totalCandidates: number;
+  newCount?: number;
   list: { title: string; url: string; source: string }[];
 }) {
   return (
     <div className="space-y-3">
-      <div className="flex gap-4 text-xs text-muted font-mono">
+      <div className="flex flex-wrap gap-4 text-xs text-muted font-mono">
         <span>RSS {rss}</span>
         <span>Serper(en) {en}</span>
         <span>Serper(ko) {ko}</span>
-        <span className="text-ink">→ {total}</span>
+        <span className="text-ink">→ {totalCandidates}</span>
+        {typeof newCount === "number" && (
+          <span className="text-accent">신규 {newCount}</span>
+        )}
       </div>
+      {typeof newCount === "number" && newCount === 0 && (
+        <p className="text-xs text-subtle italic">
+          모두 이전 회차에서 본 URL — 다음 단계 SKIP
+        </p>
+      )}
       <ul className="space-y-1 max-h-48 overflow-auto pr-1">
         {list?.slice(0, 30).map((c, i) => (
           <li key={i} className="text-sm flex gap-2 items-baseline">
@@ -245,7 +259,11 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-function Selected({
+// Score gates (mirrors kms/pipeline.py)
+const SOURCE_THRESHOLD = 3;
+const DRAFT_THRESHOLD = 4;
+
+function Scored({
   items,
 }: {
   items: {
@@ -257,37 +275,117 @@ function Selected({
 }) {
   return (
     <ul className="space-y-2">
-      {items?.map((s, i) => (
-        <li key={i} className="rounded-lg bg-surface border border-border p-3">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono text-xs px-2 py-0.5 rounded bg-accent-soft text-accent">
-              {s.score}
-            </span>
-            <a
-              href={s.url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm text-ink hover:text-accent truncate"
-            >
-              {s.title || s.url}
-            </a>
-          </div>
-          {s.score_detail?.reason && (
-            <p className="text-xs text-muted ml-1">{s.score_detail.reason}</p>
-          )}
-        </li>
-      ))}
+      {items?.map((s, i) => {
+        const tier =
+          s.score >= DRAFT_THRESHOLD
+            ? "draft"
+            : s.score >= SOURCE_THRESHOLD
+              ? "source"
+              : "below";
+        return (
+          <li
+            key={i}
+            className={[
+              "rounded-lg border p-3",
+              tier === "below"
+                ? "bg-bg border-border opacity-60"
+                : "bg-surface border-border",
+            ].join(" ")}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <span
+                className={[
+                  "font-mono text-xs px-2 py-0.5 rounded",
+                  tier === "draft"
+                    ? "bg-accent text-white"
+                    : tier === "source"
+                      ? "bg-accent-soft text-accent"
+                      : "bg-border text-subtle",
+                ].join(" ")}
+                title={
+                  tier === "draft"
+                    ? `≥${DRAFT_THRESHOLD}: 초안 합성 대상`
+                    : tier === "source"
+                      ? `≥${SOURCE_THRESHOLD}: Notion Source 적재`
+                      : `<${SOURCE_THRESHOLD}: 탈락`
+                }
+              >
+                {s.score}
+              </span>
+              <a
+                href={s.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-ink hover:text-accent truncate"
+              >
+                {s.title || s.url}
+              </a>
+            </div>
+            {s.score_detail?.reason && (
+              <p className="text-xs text-muted ml-1">{s.score_detail.reason}</p>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
-function DraftPreview({ chars, draft }: { chars: number; draft: string }) {
+function DraftPreview({
+  chars,
+  draft,
+  docCount,
+  trigger,
+}: {
+  chars: number;
+  draft: string;
+  docCount?: number;
+  trigger?: { delta?: number; draft_eligible_total?: number; last_drafted?: number };
+}) {
   return (
     <div className="space-y-2">
-      <div className="text-xs text-muted font-mono">{chars} chars</div>
+      <div className="flex flex-wrap gap-4 text-xs text-muted font-mono">
+        <span>{chars} chars</span>
+        {typeof docCount === "number" && <span>자료 {docCount}건</span>}
+        {trigger && (
+          <span className="text-accent">
+            트리거 +{trigger.delta} (누적 {trigger.draft_eligible_total} / 마지막 갱신{" "}
+            {trigger.last_drafted})
+          </span>
+        )}
+      </div>
       <pre className="text-sm whitespace-pre-wrap font-sans bg-surface border border-border rounded-lg p-4 max-h-80 overflow-auto leading-relaxed">
         {draft}
       </pre>
+    </div>
+  );
+}
+
+function NotionLink({
+  pageUrl,
+  draftReplaced,
+}: {
+  pageUrl: string;
+  draftReplaced?: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <a
+        href={pageUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-2 text-accent hover:underline text-sm"
+      >
+        {pageUrl}
+        <span aria-hidden>↗</span>
+      </a>
+      {typeof draftReplaced === "boolean" && (
+        <div className="text-xs text-subtle">
+          {draftReplaced
+            ? "초안 본문 교체됨"
+            : "Source/키워드만 누적 (초안 미갱신)"}
+        </div>
+      )}
     </div>
   );
 }

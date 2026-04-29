@@ -92,7 +92,7 @@ def _run_step(step: str, data: dict) -> dict:
     if step == "filter":
         top = score_and_select(data["topic"], data["docs"], top_k=data["top_k"])
         return {
-            "selected": [
+            "scored": [
                 {
                     "url": d["url"],
                     "title": d.get("title", ""),

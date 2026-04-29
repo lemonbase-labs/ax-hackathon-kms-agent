@@ -1,5 +1,7 @@
 import type { PhaseRecord, PhaseStatus } from "../types";
-import { PHASE_LABELS, TOTAL_PHASES } from "../types";
+import { CONDITIONAL_PHASES, PHASE_LABELS, TOTAL_PHASES } from "../types";
+
+type DerivedStatus = PhaseStatus | "skipped" | null;
 
 interface Props {
   phases: PhaseRecord[];
@@ -13,10 +15,18 @@ function derivedStatus(
   n: number,
   currentPhase: number | null,
   runStatus: Props["runStatus"],
-): PhaseStatus | null {
-  if (runStatus === "completed") return "completed";
+  phaseExists: boolean,
+): DerivedStatus {
+  if (runStatus === "completed") {
+    // Conditional phases that never recorded a row → skipped, not completed.
+    if (!phaseExists && CONDITIONAL_PHASES.has(n)) return "skipped";
+    return "completed";
+  }
   if (currentPhase == null) return null;
-  if (n < currentPhase) return "completed";
+  if (n < currentPhase) {
+    if (!phaseExists && CONDITIONAL_PHASES.has(n)) return "skipped";
+    return "completed";
+  }
   if (n === currentPhase) {
     return runStatus === "failed" ? "failed" : "running";
   }
@@ -36,23 +46,25 @@ export function PhaseStepper({
     <div className="flex items-center gap-1">
       {Array.from({ length: TOTAL_PHASES }, (_, i) => i + 1).map((n) => {
         const p = byNum.get(n);
-        const status: PhaseStatus | null =
-          p?.status ?? derivedStatus(n, currentPhase, runStatus);
+        const status: DerivedStatus =
+          p?.status ?? derivedStatus(n, currentPhase, runStatus, !!p);
         const isCurrent = runStatus === "running" && status === "running";
         const isCompleted = status === "completed";
         const isFailed = status === "failed";
+        const isSkipped = status === "skipped";
         const isPending = status == null;
         const isSelected = selected === n;
+        const isClickable = !!p && !isPending;
 
         return (
           <button
             key={n}
             type="button"
-            onClick={() => onSelect?.(n)}
-            disabled={isPending}
+            onClick={() => isClickable && onSelect?.(n)}
+            disabled={!isClickable}
             className={[
               "group flex-1 min-w-0 text-left transition",
-              onSelect && !isPending ? "cursor-pointer" : "cursor-default",
+              onSelect && isClickable ? "cursor-pointer" : "cursor-default",
             ].join(" ")}
           >
             <div className="relative h-1 rounded-full overflow-hidden bg-border">
@@ -62,6 +74,7 @@ export function PhaseStepper({
                   isCompleted ? "bg-accent" : "",
                   isFailed ? "bg-danger" : "",
                   isCurrent ? "bg-accent shimmer-bar" : "",
+                  isSkipped ? "bg-border" : "",
                 ].join(" ")}
               />
             </div>
@@ -81,8 +94,10 @@ export function PhaseStepper({
                   isCompleted ? "text-muted" : "",
                   isPending ? "text-subtle" : "",
                   isFailed ? "text-danger font-medium" : "",
+                  isSkipped ? "text-subtle line-through" : "",
                   isSelected ? "underline underline-offset-2" : "",
                 ].join(" ")}
+                title={isSkipped ? "조건 미충족으로 스킵됨" : undefined}
               >
                 {PHASE_LABELS[n]}
               </span>

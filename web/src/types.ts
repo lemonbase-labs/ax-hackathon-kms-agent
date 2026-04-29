@@ -39,9 +39,11 @@ export const PHASE_LABELS: Record<number, string> = {
   2: "후보 수집",
   3: "본문 추출",
   4: "스코어링",
-  5: "앵글 제안",
-  6: "드래프트 생성",
-  7: "Notion 저장",
+  5: "드래프트 생성",
+  6: "Notion 저장",
 };
 
-export const TOTAL_PHASES = 7;
+// Phase 5 only runs when draft trigger fires (누적 score≥4 신규 ≥3개).
+export const CONDITIONAL_PHASES = new Set([5]);
+
+export const TOTAL_PHASES = 6;
