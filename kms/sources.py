@@ -8,6 +8,10 @@ FEEDS = {
     "hrexec": "https://hrexecutive.com/feed/",
     "bersin": "https://joshbersin.com/feed/",
     "mitsmr": "https://sloanreview.mit.edu/feed/",
+    "gallup": "https://www.gallup.com/rss/177248/gallup-news.aspx",
+    "deloitte": "https://www2.deloitte.com/us/en/insights/topics/talent.rss.xml",
+    "bamboohr": "https://www.bamboohr.com/resources/feed",
+    "personio": "https://www.personio.com/blog/feed/",
 }
 
 

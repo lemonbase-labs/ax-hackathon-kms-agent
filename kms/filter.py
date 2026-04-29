@@ -1,53 +1,70 @@
-"""Score documents by relevance/credibility and select top-k via Claude."""
+"""Score documents in parallel via Claude using v2 filter prompt."""
 import json
-import re
+from concurrent.futures import ThreadPoolExecutor
+from json import JSONDecoder
+from urllib.parse import urlparse
 
 from kms._llm import client, model
 from kms._prompts import load as load_prompt
 
-# 본문은 너무 길면 토큰 폭증 → 첫 1500자만 평가에 사용
-SNIPPET_LEN = 1500
+BODY_LEN = 8000
+MAX_WORKERS = 8
 
 
 def score_and_select(topic: str, docs: list[dict], top_k: int = 5) -> list[dict]:
-    """docs: list of {url, text, ...}. Returns top_k docs with added 'score' field."""
+    """Score each doc per v2 prompt in parallel; return docs with score (=v2 total) sorted desc, capped to top_k.
+
+    `topic` is unused by v2 prompt (kept for call-site compatibility).
+    """
     if not docs:
         return []
 
-    user_payload = {
-        "topic": topic,
-        "documents": [
-            {"index": i, "url": d["url"], "snippet": d["text"][:SNIPPET_LEN]}
-            for i, d in enumerate(docs)
-        ],
-    }
-    resp = client().chat.completions.create(
-        model=model(),
-        messages=[
-            {"role": "system", "content": load_prompt("filter")},
-            {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
-        ],
-    )
-    text = (resp.choices[0].message.content or "").strip()
-    parsed = _parse_json(text)
-    scores = parsed.get("scores", [])
-
-    # 인덱스로 docs에 score 합치기
-    by_index = {s["index"]: s for s in scores if "index" in s}
-    enriched = []
-    for i, d in enumerate(docs):
-        s = by_index.get(i)
-        if not s:
-            continue
-        total = int(s.get("relevance", 0)) + int(s.get("credibility", 0))
-        enriched.append({**d, "score": total, "score_detail": s})
+    sys_prompt = load_prompt("filter")
+    workers = min(MAX_WORKERS, len(docs))
+    enriched: list[dict] = []
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for d, result in zip(docs, ex.map(lambda x: _score_one(sys_prompt, x), docs)):
+            if result is None:
+                continue
+            total = int(result.get("total", 0))
+            enriched.append({**d, "score": total, "score_detail": result})
 
     enriched.sort(key=lambda x: x["score"], reverse=True)
     return enriched[:top_k]
 
 
+def _score_one(sys_prompt: str, d: dict) -> dict | None:
+    url = d.get("url", "")
+    user_payload = {
+        "url": url,
+        "domain": urlparse(url).netloc,
+        "title": d.get("title", ""),
+        "published_at": d.get("published_at"),
+        "updated_at": d.get("updated_at"),
+        "body": (d.get("text") or "")[:BODY_LEN],
+        "db_context": d.get("db_context", []),
+    }
+    try:
+        resp = client().chat.completions.create(
+            model=model(),
+            messages=[
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+            ],
+        )
+    except Exception:
+        return None
+    text = (resp.choices[0].message.content or "").strip()
+    try:
+        return _parse_json(text)
+    except (ValueError, json.JSONDecodeError):
+        return None
+
+
 def _parse_json(text: str) -> dict:
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    if not m:
+    """Extract the first JSON object from text — tolerates code fences/prefixes/trailing junk."""
+    start = text.find("{")
+    if start < 0:
         raise ValueError(f"No JSON object found in response: {text!r}")
-    return json.loads(m.group(0))
+    obj, _ = JSONDecoder().raw_decode(text[start:])
+    return obj
