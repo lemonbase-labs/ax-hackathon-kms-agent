@@ -49,8 +49,8 @@ export default function Dashboard() {
             오늘의 <span className="text-accent">주제</span>는?
           </h1>
           <p className="text-sm text-muted mb-5">
-            주제어를 입력하면 키워드 추출부터 Notion 저장까지 6단계를 자동 실행합니다.
-            같은 주제를 재실행하면 새로 발견된 자료만 평가합니다.
+            주제어를 입력하면 키워드 추출부터 Notion 저장까지 6단계를 자동
+            실행합니다. 같은 주제를 재실행하면 새로 발견된 자료만 평가합니다.
           </p>
           <form onSubmit={submit} className="flex gap-2">
             <input
