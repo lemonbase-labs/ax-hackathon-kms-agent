@@ -9,9 +9,10 @@ interface Props {
   run: RunSummary;
   defaultExpanded?: boolean;
   pollMs?: number;
+  onDelete?: (id: number) => void;
 }
 
-export function RunCard({ run, defaultExpanded, pollMs }: Props) {
+export function RunCard({ run, defaultExpanded, pollMs, onDelete }: Props) {
   const [expanded, setExpanded] = useState(!!defaultExpanded);
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [selectedPhase, setSelectedPhase] = useState<number | null>(null);
@@ -50,6 +51,18 @@ export function RunCard({ run, defaultExpanded, pollMs }: Props) {
 
   const isRunning = run.status === "running";
 
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onDelete) return;
+    if (!confirm(`"${run.topic}" 이력을 삭제할까요?`)) return;
+    try {
+      await api.deleteRun(run.id);
+      onDelete(run.id);
+    } catch (err) {
+      alert(`삭제 실패: ${(err as Error).message}`);
+    }
+  };
+
   return (
     <article
       className={[
@@ -81,6 +94,28 @@ export function RunCard({ run, defaultExpanded, pollMs }: Props) {
           >
             Notion ↗
           </a>
+        )}
+        {!isRunning && onDelete && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            aria-label="이력 삭제"
+            title="이력 삭제"
+            className="text-subtle hover:text-danger p-1 -m-1 rounded transition"
+          >
+            <svg
+              aria-hidden
+              viewBox="0 0 20 20"
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 6h12M8 6V4h4v2m-6 0v10a1 1 0 001 1h6a1 1 0 001-1V6" />
+            </svg>
+          </button>
         )}
         <svg
           aria-hidden

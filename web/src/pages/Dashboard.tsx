@@ -82,7 +82,7 @@ export default function Dashboard() {
         ) : (
           <div className="space-y-2.5">
             {pastRuns.map((r) => (
-              <RunCard key={r.id} run={r} />
+              <RunCard key={r.id} run={r} onDelete={() => runs.refetch()} />
             ))}
           </div>
         )}

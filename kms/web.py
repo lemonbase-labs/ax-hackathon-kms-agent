@@ -84,6 +84,17 @@ def run_detail(run_id: int):
     return run
 
 
+@app.delete("/api/runs/{run_id}")
+def delete_run(run_id: int):
+    run = db.get_run(run_id)
+    if not run:
+        raise HTTPException(404, "run not found")
+    if run["status"] == "running":
+        raise HTTPException(409, "cannot delete a running run")
+    db.delete_run(run_id)
+    return {"status": "deleted"}
+
+
 def _run_step(step: str, data: dict) -> dict:
     """Dispatch step to its function. Returns a phase-payload-shaped dict."""
     if step == "keyword_extract":

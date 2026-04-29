@@ -21,6 +21,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ topic, top_k }),
     }),
+  deleteRun: (id: number) =>
+    req<{ status: string }>(`/api/runs/${id}`, { method: "DELETE" }),
   listPrompts: () => req<{ prompts: Prompt[] }>("/api/prompts"),
   savePrompt: (name: string, content: string) =>
     req<Prompt>(`/api/prompts/${name}`, {

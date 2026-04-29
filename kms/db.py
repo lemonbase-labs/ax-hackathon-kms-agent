@@ -273,6 +273,16 @@ def upsert_topic_page(
         )
 
 
+def delete_run(run_id: int) -> bool:
+    with connect() as c:
+        cur = c.execute("DELETE FROM runs WHERE id=?", (run_id,))
+        if cur.rowcount == 0:
+            return False
+        c.execute("DELETE FROM run_phases WHERE run_id=?", (run_id,))
+        c.execute("DELETE FROM run_step_inputs WHERE run_id=?", (run_id,))
+        return True
+
+
 def get_active_run() -> dict | None:
     with connect() as c:
         row = c.execute(
