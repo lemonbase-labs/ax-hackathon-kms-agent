@@ -5,8 +5,7 @@ import type { Prompt } from "../types";
 const PROMPT_LABELS: Record<string, string> = {
   keyword_extract: "1. 키워드 추출",
   filter: "2. 스코어링",
-  curate: "3. 앵글 제안",
-  draft: "4. 드래프트 생성",
+  draft: "3. 드래프트 생성",
 };
 
 export default function Prompts() {

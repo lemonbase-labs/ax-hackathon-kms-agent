@@ -9,14 +9,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from kms import _prompts, db
-from kms.curate import propose_angles
 from kms.draft import synthesize
 from kms.filter import score_and_select
 from kms.keyword_extract import extract_keywords
 from kms.pipeline import run_pipeline
 
 # step name → (loader, runner returning a phase-payload-shaped dict)
-STEP_PHASE_NUM = {"keyword_extract": 1, "filter": 4, "curate": 5, "draft": 6}
+STEP_PHASE_NUM = {"keyword_extract": 1, "filter": 4, "draft": 5}
 
 load_dotenv()
 
@@ -103,12 +102,9 @@ def _run_step(step: str, data: dict) -> dict:
                 for d in top
             ],
         }
-    if step == "curate":
-        angles = propose_angles(data["topic"], data["docs"])
-        return {"count": len(angles), "angles": angles}
     if step == "draft":
-        text = synthesize(data["topic"], data["docs"], angle=data.get("angle"))
-        return {"chars": len(text), "draft": text, "angle": data.get("angle")}
+        text = synthesize(data["topic"], data["docs"])
+        return {"chars": len(text), "draft": text}
     raise HTTPException(400, f"unknown step: {step}")
 
 

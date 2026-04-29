@@ -5,8 +5,7 @@ import type { PhaseRecord } from "../types";
 const RERUN_STEP_BY_PHASE: Record<number, string> = {
   1: "keyword_extract",
   4: "filter",
-  5: "curate",
-  6: "draft",
+  5: "draft",
 };
 
 export function PhaseDetail({
@@ -146,19 +145,12 @@ function PayloadView({
       );
     case 5:
       return (
-        <Angles
-          angles={payload.angles as { title?: string; insight?: string }[] | undefined}
-          count={payload.count as number | undefined}
-        />
-      );
-    case 6:
-      return (
         <DraftPreview
           chars={payload.chars as number}
           draft={payload.draft as string}
         />
       );
-    case 7:
+    case 6:
       return (
         <a
           href={payload.page_url as string}
@@ -282,34 +274,6 @@ function Selected({
           </div>
           {s.score_detail?.reason && (
             <p className="text-xs text-muted ml-1">{s.score_detail.reason}</p>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Angles({
-  angles,
-  count,
-}: {
-  angles?: { title?: string; insight?: string }[];
-  count?: number;
-}) {
-  if (!angles || angles.length === 0) {
-    return (
-      <div className="text-sm text-subtle italic">
-        앵글 없음 ({count ?? 0})
-      </div>
-    );
-  }
-  return (
-    <ul className="space-y-2">
-      {angles.map((a, i) => (
-        <li key={i} className="rounded-lg bg-surface border border-border p-3">
-          <div className="text-sm font-semibold text-ink">{a.title}</div>
-          {a.insight && (
-            <div className="text-xs text-muted mt-1">{a.insight}</div>
           )}
         </li>
       ))}

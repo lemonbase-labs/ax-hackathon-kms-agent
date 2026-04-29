@@ -44,6 +44,31 @@ CREATE TABLE IF NOT EXISTS run_step_inputs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_step_inputs_run ON run_step_inputs(run_id);
+
+CREATE TABLE IF NOT EXISTS seen_sources (
+  topic           TEXT NOT NULL,
+  url_canonical   TEXT NOT NULL,
+  url_original    TEXT NOT NULL,
+  title           TEXT,
+  source          TEXT,
+  first_seen_at   TEXT NOT NULL,
+  status          TEXT NOT NULL,
+  score           INTEGER,
+  notion_page_id  TEXT,
+  run_id          INTEGER,
+  PRIMARY KEY (topic, url_canonical)
+);
+
+CREATE INDEX IF NOT EXISTS idx_seen_topic ON seen_sources(topic);
+
+CREATE TABLE IF NOT EXISTS topic_pages (
+  topic                      TEXT PRIMARY KEY,
+  notion_page_id             TEXT NOT NULL,
+  last_updated_at            TEXT NOT NULL,
+  source_count               INTEGER NOT NULL DEFAULT 0,
+  draft_eligible_count       INTEGER NOT NULL DEFAULT 0,
+  last_drafted_source_count  INTEGER NOT NULL DEFAULT 0
+);
 """
 
 
@@ -167,6 +192,69 @@ def list_step_inputs(run_id: int) -> list[str]:
             (run_id,),
         ).fetchall()
         return [r["step_name"] for r in rows]
+
+
+def get_topic_page(topic: str) -> dict | None:
+    with connect() as c:
+        row = c.execute(
+            "SELECT * FROM topic_pages WHERE topic=?", (topic,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def upsert_topic_page(
+    topic: str,
+    notion_page_id: str,
+    source_count: int | None = None,
+    draft_eligible_count: int | None = None,
+    last_drafted_source_count: int | None = None,
+) -> None:
+    """Insert or update topic_pages. None fields are left untouched on update."""
+    with connect() as c:
+        existing = c.execute(
+            "SELECT * FROM topic_pages WHERE topic=?", (topic,)
+        ).fetchone()
+        if existing is None:
+            c.execute(
+                "INSERT INTO topic_pages "
+                "(topic, notion_page_id, last_updated_at, "
+                " source_count, draft_eligible_count, last_drafted_source_count) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    topic,
+                    notion_page_id,
+                    now(),
+                    source_count or 0,
+                    draft_eligible_count or 0,
+                    last_drafted_source_count or 0,
+                ),
+            )
+            return
+        merged_source = source_count if source_count is not None else existing["source_count"]
+        merged_draft_elig = (
+            draft_eligible_count
+            if draft_eligible_count is not None
+            else existing["draft_eligible_count"]
+        )
+        merged_last_drafted = (
+            last_drafted_source_count
+            if last_drafted_source_count is not None
+            else existing["last_drafted_source_count"]
+        )
+        c.execute(
+            "UPDATE topic_pages SET "
+            "notion_page_id=?, last_updated_at=?, "
+            "source_count=?, draft_eligible_count=?, last_drafted_source_count=? "
+            "WHERE topic=?",
+            (
+                notion_page_id,
+                now(),
+                merged_source,
+                merged_draft_elig,
+                merged_last_drafted,
+                topic,
+            ),
+        )
 
 
 def get_active_run() -> dict | None:
