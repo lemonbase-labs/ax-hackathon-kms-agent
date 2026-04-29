@@ -136,6 +136,33 @@ class TestScoreAndSelect(unittest.TestCase):
             capped = flt.score_and_select("t", docs, top_k=2)
         self.assertEqual([d["score"] for d in capped], [5, 4])
 
+    def test_on_progress_called_per_doc_with_monotonic_count(self):
+        docs = [{"url": f"u-{i}", "text": "x"} for i in range(3)]
+        responses = {f"u-{i}": _v2(3) for i in range(3)}
+        calls: list[tuple[int, int]] = []
+        client_mock = MagicMock()
+        client_mock.chat.completions.create.side_effect = _by_url_responder(responses)
+        with patch("kms.filter.client", return_value=client_mock):
+            flt.score_and_select(
+                "t", docs, top_k=10,
+                on_progress=lambda done, total: calls.append((done, total)),
+            )
+        self.assertEqual([d for d, _ in calls], [1, 2, 3])
+        self.assertTrue(all(t == 3 for _, t in calls))
+
+    def test_on_progress_fires_for_failed_docs_too(self):
+        docs = [{"url": "__raise__", "text": "a"}, {"url": "u-b", "text": "b"}]
+        calls: list[tuple[int, int]] = []
+        client_mock = MagicMock()
+        client_mock.chat.completions.create.side_effect = _by_url_responder({"u-b": _v2(4)})
+        with patch("kms.filter.client", return_value=client_mock):
+            flt.score_and_select(
+                "t", docs, top_k=10,
+                on_progress=lambda done, total: calls.append((done, total)),
+            )
+        self.assertEqual([d for d, _ in calls], [1, 2])
+        self.assertTrue(all(t == 2 for _, t in calls))
+
     def test_runs_in_parallel(self):
         # Latch verifies multiple calls are in-flight simultaneously.
         n_docs = 4

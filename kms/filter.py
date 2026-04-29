@@ -1,6 +1,7 @@
 """Score documents in parallel via Claude using v2 filter prompt."""
 import json
-from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from json import JSONDecoder
 from urllib.parse import urlparse
 
@@ -11,23 +12,37 @@ BODY_LEN = 8000
 MAX_WORKERS = 8
 
 
-def score_and_select(topic: str, docs: list[dict], top_k: int = 5) -> list[dict]:
+def score_and_select(
+    topic: str,
+    docs: list[dict],
+    top_k: int = 5,
+    on_progress: Callable[[int, int], None] | None = None,
+) -> list[dict]:
     """Score each doc per v2 prompt in parallel; return docs with score (=v2 total) sorted desc, capped to top_k.
 
     `topic` is unused by v2 prompt (kept for call-site compatibility).
+    `on_progress(done, total)` fires as each doc finishes (success or failure).
     """
     if not docs:
         return []
 
     sys_prompt = load_prompt("filter")
     workers = min(MAX_WORKERS, len(docs))
+    total = len(docs)
     enriched: list[dict] = []
     with ThreadPoolExecutor(max_workers=workers) as ex:
-        for d, result in zip(docs, ex.map(lambda x: _score_one(sys_prompt, x), docs)):
+        future_to_doc = {ex.submit(_score_one, sys_prompt, d): d for d in docs}
+        done = 0
+        for fut in as_completed(future_to_doc):
+            d = future_to_doc[fut]
+            result = fut.result()
+            done += 1
+            if on_progress is not None:
+                on_progress(done, total)
             if result is None:
                 continue
-            total = int(result.get("total", 0))
-            enriched.append({**d, "score": total, "score_detail": result})
+            score = int(result.get("total", 0))
+            enriched.append({**d, "score": score, "score_detail": result})
 
     enriched.sort(key=lambda x: x["score"], reverse=True)
     return enriched[:top_k]

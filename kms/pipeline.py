@@ -13,7 +13,7 @@ from kms.search import search as web_search
 from kms.sources import fetch_candidates
 
 SOURCE_THRESHOLD = 3   # score≥ → Notion Source field
-DRAFT_THRESHOLD = 4    # score≥ → eligible for draft synthesis
+DRAFT_THRESHOLD = 3    # score≥ → eligible for draft synthesis (temp: lowered from 4)
 DRAFT_BATCH = 3        # draft regenerates when (eligible_total - last_drafted) ≥ this
 
 
@@ -115,7 +115,13 @@ def run_pipeline(topic: str, top_k: int = 5) -> dict:
             db.save_step_input(
                 t.run_id, "filter", {"topic": topic, "docs": docs, "top_k": len(docs)}
             )
-            scored = score_and_select(topic, docs, top_k=len(docs))
+            p.progress(f"0/{len(docs)}")
+            scored = score_and_select(
+                topic,
+                docs,
+                top_k=len(docs),
+                on_progress=lambda done, total: p.progress(f"{done}/{total}"),
+            )
             for d in scored:
                 seen_store.mark_status(topic, d["url"], "scored", score=d["score"])
             p.payload({
