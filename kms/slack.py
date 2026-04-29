@@ -15,8 +15,8 @@ TIMEOUT_S = 5
 
 def notify_draft(topic: str, action: str, page_url: str) -> None:
     """Post a single-topic draft notification. action: 'created' | 'updated'."""
-    verb = "작성됨" if action == "created" else "업데이트됨"
-    text = f"*{topic}* 초안 {verb}\n{page_url}"
+    verb = "작성되었습니다" if action == "created" else "갱신되었습니다"
+    text = f"KMS 초안이 {verb}.\n • {topic} — {page_url}"
     _post(text)
 
 

@@ -13,6 +13,7 @@ from kms.draft import synthesize
 from kms.filter import score_and_select
 from kms.keyword_extract import extract_keywords
 from kms.pipeline import run_pipeline
+from kms.slack import notify_draft
 
 # step name → (loader, runner returning a phase-payload-shaped dict)
 STEP_PHASE_NUM = {"keyword_extract": 1, "filter": 4, "draft": 5}
@@ -43,7 +44,10 @@ class PromptUpdate(BaseModel):
 
 def _execute(topic: str, top_k: int) -> None:
     try:
-        run_pipeline(topic, top_k=top_k)
+        result = run_pipeline(topic, top_k=top_k)
+        action = result.get("notion_action")
+        if action:
+            notify_draft(topic, action, result["notion_url"])
     except Exception:
         pass
     finally:
