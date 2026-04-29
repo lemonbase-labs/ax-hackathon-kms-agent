@@ -1,5 +1,4 @@
-"""RSS-based article source. Phase 1a: HBR + HR Dive + HR Executive (English)."""
-import re
+"""RSS-based article source. HR/조직 사고 리더십 매체 + 트렌드 뉴스 매체."""
 
 import feedparser
 
@@ -7,26 +6,22 @@ FEEDS = {
     "hbr": "https://feeds.feedburner.com/harvardbusiness",
     "hrdive": "https://www.hrdive.com/feeds/news/",
     "hrexec": "https://hrexecutive.com/feed/",
+    "bersin": "https://joshbersin.com/feed/",
+    "mitsmr": "https://sloanreview.mit.edu/feed/",
 }
-
-# 단어 단위 매칭 시 너무 흔한 영단어는 제외 (전부 잡혀버려 Claude 스코어링 부담↑)
-STOP_WORDS = {
-    "the", "and", "for", "from", "with", "this", "that", "your", "their",
-    "review", "process", "system", "people",
-}
-MIN_WORD_LEN = 4
 
 
 def fetch_candidates(keywords_en: list[str]) -> list[dict]:
-    """RSS entries whose title/summary contains any keyword *word* (substring).
+    """RSS entries whose title/summary contains a keyword *phrase*.
 
-    Multi-word keywords ('probation evaluation') are split into individual
-    words; an entry matches if any non-stopword word (≥4 chars) is present.
+    Phrase matching: 'performance management' must appear as-is (lowercased).
+    Word-level tokenizing was abandoned — single common words like 'performance'
+    matched almost every entry, exploding RSS hits to 200+.
     Returns list of {url, title, source, matched}.
     """
     if not keywords_en:
         return []
-    needles = _tokenize(keywords_en)
+    needles = [k.lower().strip() for k in keywords_en if k.strip()]
     if not needles:
         return []
     seen_urls: set[str] = set()
@@ -44,7 +39,7 @@ def fetch_candidates(keywords_en: list[str]) -> list[dict]:
             title = entry.get("title", "")
             summary = entry.get("summary", "")
             haystack = f"{title} {summary}".lower()
-            matched = sorted({w for w in needles if w in haystack})
+            matched = sorted({n for n in needles if n in haystack})
             if not matched:
                 continue
             seen_urls.add(url)
@@ -57,12 +52,3 @@ def fetch_candidates(keywords_en: list[str]) -> list[dict]:
                 }
             )
     return results
-
-
-def _tokenize(keywords: list[str]) -> set[str]:
-    out: set[str] = set()
-    for kw in keywords:
-        for w in re.split(r"[^a-zA-Z]+", kw.lower()):
-            if len(w) >= MIN_WORD_LEN and w not in STOP_WORDS:
-                out.add(w)
-    return out
