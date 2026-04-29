@@ -10,6 +10,7 @@ export interface RunSummary {
   error: string | null;
   started_at: string;
   finished_at: string | null;
+  executed_phases: number[];
 }
 
 export interface PhaseRecord {

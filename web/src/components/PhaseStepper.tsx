@@ -9,6 +9,7 @@ interface Props {
   runStatus: "running" | "completed" | "failed";
   onSelect?: (n: number) => void;
   selected?: number | null;
+  executedPhases?: number[];
 }
 
 function derivedStatus(
@@ -39,15 +40,18 @@ export function PhaseStepper({
   runStatus,
   onSelect,
   selected,
+  executedPhases,
 }: Props) {
   const byNum = new Map(phases.map((p) => [p.phase_num, p]));
+  const executed = new Set(executedPhases ?? []);
 
   return (
     <div className="flex items-center gap-1">
       {Array.from({ length: TOTAL_PHASES }, (_, i) => i + 1).map((n) => {
         const p = byNum.get(n);
+        const phaseExists = !!p || executed.has(n);
         const status: DerivedStatus =
-          p?.status ?? derivedStatus(n, currentPhase, runStatus, !!p);
+          p?.status ?? derivedStatus(n, currentPhase, runStatus, phaseExists);
         const isCurrent = runStatus === "running" && status === "running";
         const isCompleted = status === "completed";
         const isFailed = status === "failed";

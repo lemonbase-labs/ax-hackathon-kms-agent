@@ -143,7 +143,22 @@ def list_runs(limit: int = 50) -> list[dict]:
         rows = c.execute(
             "SELECT * FROM runs ORDER BY id DESC LIMIT ?", (limit,)
         ).fetchall()
-        return [dict(r) for r in rows]
+        runs = [dict(r) for r in rows]
+        if not runs:
+            return runs
+        ids = [r["id"] for r in runs]
+        placeholders = ",".join("?" * len(ids))
+        phase_rows = c.execute(
+            f"SELECT run_id, phase_num FROM run_phases "
+            f"WHERE run_id IN ({placeholders}) ORDER BY run_id, phase_num",
+            ids,
+        ).fetchall()
+        executed: dict[int, list[int]] = {i: [] for i in ids}
+        for p in phase_rows:
+            executed[p["run_id"]].append(p["phase_num"])
+        for r in runs:
+            r["executed_phases"] = executed[r["id"]]
+        return runs
 
 
 def get_run(run_id: int) -> dict | None:
@@ -159,6 +174,7 @@ def get_run(run_id: int) -> dict | None:
             {**dict(p), "payload": json.loads(p["payload_json"]) if p["payload_json"] else None}
             for p in phases
         ]
+        run["executed_phases"] = [p["phase_num"] for p in phases]
         return run
 
 
@@ -262,4 +278,12 @@ def get_active_run() -> dict | None:
         row = c.execute(
             "SELECT * FROM runs WHERE status='running' ORDER BY id DESC LIMIT 1"
         ).fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        run = dict(row)
+        phase_rows = c.execute(
+            "SELECT phase_num FROM run_phases WHERE run_id=? ORDER BY phase_num",
+            (run["id"],),
+        ).fetchall()
+        run["executed_phases"] = [p["phase_num"] for p in phase_rows]
+        return run

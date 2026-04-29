@@ -104,6 +104,7 @@ export function RunCard({ run, defaultExpanded, pollMs }: Props) {
           phases={phases}
           currentPhase={run.current_phase}
           runStatus={run.status}
+          executedPhases={run.executed_phases}
           onSelect={(n) => {
             setExpanded(true);
             setSelectedPhase(n);
