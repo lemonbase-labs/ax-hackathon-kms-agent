@@ -35,6 +35,12 @@ export interface Prompt {
   content: string;
 }
 
+export interface ThresholdConfig {
+  source_threshold: number;
+  draft_threshold: number;
+  draft_batch: number;
+}
+
 export const PHASE_LABELS: Record<number, string> = {
   1: "키워드 추출",
   2: "후보 수집",

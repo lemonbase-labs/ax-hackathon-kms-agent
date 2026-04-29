@@ -1,0 +1,5 @@
+{
+  "source_threshold": 3,
+  "draft_threshold": 3,
+  "draft_batch": 3
+}

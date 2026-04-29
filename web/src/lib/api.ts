@@ -1,4 +1,4 @@
-import type { Prompt, RunDetail, RunSummary } from "../types";
+import type { Prompt, RunDetail, RunSummary, ThresholdConfig } from "../types";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(path, {
@@ -34,4 +34,16 @@ export const api = {
       `/api/runs/${runId}/steps/${step}/rerun`,
       { method: "POST" },
     ),
+  getFeeds: () => req<{ content: string }>("/api/feeds"),
+  saveFeeds: (content: string) =>
+    req<{ content: string }>("/api/feeds", {
+      method: "PUT",
+      body: JSON.stringify({ content }),
+    }),
+  getConfig: () => req<ThresholdConfig>("/api/config"),
+  saveConfig: (cfg: ThresholdConfig) =>
+    req<ThresholdConfig>("/api/config", {
+      method: "PUT",
+      body: JSON.stringify(cfg),
+    }),
 };

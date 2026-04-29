@@ -18,6 +18,8 @@ export default function App() {
               Dashboard
             </NavItem>
             <NavItem to="/prompts">Prompts</NavItem>
+            <NavItem to="/feeds">Feeds</NavItem>
+            <NavItem to="/settings">Settings</NavItem>
           </nav>
         </div>
       </header>

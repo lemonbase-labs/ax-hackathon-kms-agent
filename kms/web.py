@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from kms import _prompts, db
+from kms import _config, _feeds, _prompts, db
 from kms.draft import synthesize
 from kms.filter import score_and_select
 from kms.keyword_extract import extract_keywords
@@ -40,6 +40,16 @@ class RunRequest(BaseModel):
 
 class PromptUpdate(BaseModel):
     content: str
+
+
+class FeedsUpdate(BaseModel):
+    content: str
+
+
+class ConfigUpdate(BaseModel):
+    source_threshold: int
+    draft_threshold: int
+    draft_batch: int
 
 
 def _execute(topic: str, top_k: int) -> None:
@@ -169,6 +179,33 @@ def update_prompt(name: str, body: PromptUpdate):
     except ValueError:
         raise HTTPException(404, "prompt not found")
     return {"name": name, "content": _prompts.load(name)}
+
+
+@app.get("/api/feeds")
+def get_feeds():
+    return {"content": _feeds.load_raw()}
+
+
+@app.put("/api/feeds")
+def update_feeds(body: FeedsUpdate):
+    try:
+        _feeds.save(body.content)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"content": _feeds.load_raw()}
+
+
+@app.get("/api/config")
+def get_config():
+    return _config.load()
+
+
+@app.put("/api/config")
+def update_config(body: ConfigUpdate):
+    try:
+        return _config.save(body.model_dump())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 # Serve built frontend if present

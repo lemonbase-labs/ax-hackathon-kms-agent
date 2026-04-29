@@ -1,9 +1,9 @@
 """Topic → Notion pipeline with cross-run dedupe + two-stage gates.
 
+Thresholds (source/draft/batch) are loaded from kms/config.json on every run.
 Score scale (filter.md): relevance(1-10) + credibility(1-10) = total 2-20.
-SOURCE_THRESHOLD/DRAFT_THRESHOLD are placeholders — tune after observing real distribution.
 """
-from kms import db, seen_store, tracker
+from kms import _config, db, seen_store, tracker
 from kms.draft import synthesize
 from kms.extract import extract
 from kms.filter import score_and_select
@@ -12,24 +12,24 @@ from kms.notion_writer import write_draft
 from kms.search import search as web_search
 from kms.sources import fetch_candidates
 
-SOURCE_THRESHOLD = 3   # score≥ → Notion Source field
-DRAFT_THRESHOLD = 3    # score≥ → eligible for draft synthesis (temp: lowered from 4)
-DRAFT_BATCH = 3        # draft regenerates when (eligible_total - last_drafted) ≥ this
-
 
 def decide_action(
     scored: list[dict],
     prev_source_count: int,
     prev_draft_eligible: int,
     prev_last_drafted: int,
+    *,
+    source_threshold: int,
+    draft_threshold: int,
+    draft_batch: int,
 ) -> dict:
     """Pure function: gate scored docs, compute counters, decide draft trigger."""
-    new_for_source = [d for d in scored if d.get("score", 0) >= SOURCE_THRESHOLD]
-    new_for_draft = [d for d in scored if d.get("score", 0) >= DRAFT_THRESHOLD]
+    new_for_source = [d for d in scored if d.get("score", 0) >= source_threshold]
+    new_for_draft = [d for d in scored if d.get("score", 0) >= draft_threshold]
     new_source_count = prev_source_count + len(new_for_source)
     new_draft_eligible = prev_draft_eligible + len(new_for_draft)
     delta_for_draft = new_draft_eligible - prev_last_drafted
-    should_draft = delta_for_draft >= DRAFT_BATCH
+    should_draft = delta_for_draft >= draft_batch
     return {
         "new_for_source": new_for_source,
         "new_for_draft": new_for_draft,
@@ -57,6 +57,7 @@ def run_pipeline(topic: str, top_k: int = 5) -> dict:
     """Execute pipeline. top_k is unused now (kept for CLI compatibility);
     all new candidates are scored. Returns {run_id, status, ...}.
     """
+    cfg = _config.load()
     t = tracker.start(topic)
     try:
         with t.phase(1, "Extracting keywords") as p:
@@ -141,7 +142,13 @@ def run_pipeline(topic: str, top_k: int = 5) -> dict:
         prev_draft_eligible = tp["draft_eligible_count"] if tp else 0
         prev_last_drafted = tp["last_drafted_source_count"] if tp else 0
         action = decide_action(
-            scored, prev_source_count, prev_draft_eligible, prev_last_drafted
+            scored,
+            prev_source_count,
+            prev_draft_eligible,
+            prev_last_drafted,
+            source_threshold=cfg["source_threshold"],
+            draft_threshold=cfg["draft_threshold"],
+            draft_batch=cfg["draft_batch"],
         )
         new_for_source = action["new_for_source"]
         new_for_draft = action["new_for_draft"]
@@ -163,7 +170,9 @@ def run_pipeline(topic: str, top_k: int = 5) -> dict:
         draft_text: str | None = None
         if should_draft:
             with t.phase(5, "Synthesizing draft") as p:
-                eligible_rows = seen_store.list_by_min_score(topic, DRAFT_THRESHOLD)
+                eligible_rows = seen_store.list_by_min_score(
+                    topic, cfg["draft_threshold"]
+                )
                 # Include this run's newly scored ≥4 docs (mark_status committed them already).
                 docs_for_draft: list[dict] = []
                 for r in eligible_rows:

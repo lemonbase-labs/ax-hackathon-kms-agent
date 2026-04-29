@@ -1,18 +1,8 @@
-"""RSS-based article source. HR/조직 사고 리더십 매체 + 트렌드 뉴스 매체."""
+"""RSS-based article source. Feed whitelist is loaded from kms/feeds.txt."""
 
 import feedparser
 
-FEEDS = {
-    "hbr": "https://feeds.feedburner.com/harvardbusiness",
-    "hrdive": "https://www.hrdive.com/feeds/news/",
-    "hrexec": "https://hrexecutive.com/feed/",
-    "bersin": "https://joshbersin.com/feed/",
-    "mitsmr": "https://sloanreview.mit.edu/feed/",
-    "gallup": "https://www.gallup.com/rss/177248/gallup-news.aspx",
-    "deloitte": "https://www2.deloitte.com/us/en/insights/topics/talent.rss.xml",
-    "bamboohr": "https://www.bamboohr.com/resources/feed",
-    "personio": "https://www.personio.com/blog/feed/",
-}
+from kms import _feeds
 
 
 def fetch_candidates(keywords_en: list[str]) -> list[dict]:
@@ -31,7 +21,7 @@ def fetch_candidates(keywords_en: list[str]) -> list[dict]:
     seen_urls: set[str] = set()
     results: list[dict] = []
 
-    for source_name, feed_url in FEEDS.items():
+    for source_name, feed_url in _feeds.load().items():
         feed = feedparser.parse(feed_url)
         if feed.bozo and not feed.entries:
             print(f"  ! RSS unavailable ({source_name}): {feed.bozo_exception}")

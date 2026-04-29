@@ -1,0 +1,14 @@
+# RSS feed whitelist
+# Format: <name> <url>
+# Lines starting with # are disabled (comment out to toggle off).
+# Names must be unique and are stored as the `source` label in seen_sources.
+
+hbr        https://feeds.feedburner.com/harvardbusiness
+hrdive     https://www.hrdive.com/feeds/news/
+hrexec     https://hrexecutive.com/feed/
+bersin     https://joshbersin.com/feed/
+mitsmr     https://sloanreview.mit.edu/feed/
+gallup     https://www.gallup.com/rss/177248/gallup-news.aspx
+deloitte   https://www2.deloitte.com/us/en/insights/topics/talent.rss.xml
+bamboohr   https://www.bamboohr.com/resources/feed
+personio   https://www.personio.com/blog/feed/
