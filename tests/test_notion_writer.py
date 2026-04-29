@@ -53,6 +53,18 @@ class TestHelpers(unittest.TestCase):
             _read_source_field(page), ["https://a", "https://b"]
         )
 
+    def test_read_source_field_strips_bullet_prefix(self):
+        page = {
+            "properties": {
+                "Source": {
+                    "rich_text": [{"plain_text": "• https://a\n• https://b\n"}]
+                }
+            }
+        }
+        self.assertEqual(
+            _read_source_field(page), ["https://a", "https://b"]
+        )
+
     def test_read_multi_select(self):
         page = {
             "properties": {
@@ -63,7 +75,7 @@ class TestHelpers(unittest.TestCase):
 
     def test_truncate_sources_within_limit(self):
         out = _truncate_sources(["https://a", "https://b"])
-        self.assertEqual(out, "https://a\nhttps://b")
+        self.assertEqual(out, "• https://a\n• https://b")
 
     def test_truncate_sources_keeps_recent_when_overflow(self):
         # 800-char items: two fit (≈1601 chars w/ newline), three don't (≈2403)

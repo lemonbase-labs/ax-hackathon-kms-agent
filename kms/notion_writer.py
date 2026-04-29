@@ -13,6 +13,7 @@ from kms import db
 # Notion paragraph rich_text content limit is 2000 chars. Keep margin.
 CHUNK = 1900
 SOURCE_FIELD_MAX = 1900
+BULLET = "• "
 
 
 def write_draft(
@@ -111,7 +112,16 @@ def _read_source_field(page: dict) -> list[str]:
     prop = page.get("properties", {}).get("Source", {})
     rich = prop.get("rich_text", [])
     text = "".join(rt.get("plain_text", "") for rt in rich)
-    return [line for line in text.split("\n") if line.strip()]
+    out: list[str] = []
+    for raw in text.split("\n"):
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith(BULLET):
+            line = line[len(BULLET):].strip()
+        if line:
+            out.append(line)
+    return out
 
 
 def _read_multi_select(page: dict, name: str) -> list[str]:
@@ -120,15 +130,16 @@ def _read_multi_select(page: dict, name: str) -> list[str]:
 
 
 def _truncate_sources(sources: list[str]) -> str:
-    """Join with newlines; if total exceeds limit, keep most recent (tail)."""
+    """Join as bullet list; if total exceeds limit, keep most recent (tail)."""
     if not sources:
         return ""
-    joined = "\n".join(sources)
+    bulleted = [f"{BULLET}{s}" for s in sources]
+    joined = "\n".join(bulleted)
     if len(joined) <= SOURCE_FIELD_MAX:
         return joined
     kept: list[str] = []
     running = 0
-    for s in reversed(sources):
+    for s in reversed(bulleted):
         add = len(s) + (1 if kept else 0)
         if running + add > SOURCE_FIELD_MAX:
             break
