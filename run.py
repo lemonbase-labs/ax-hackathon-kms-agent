@@ -4,6 +4,7 @@ import argparse
 from dotenv import load_dotenv
 
 from kms.pipeline import run_pipeline
+from kms.slack import notify_draft
 
 
 def main() -> None:
@@ -14,6 +15,9 @@ def main() -> None:
     args = parser.parse_args()
 
     result = run_pipeline(args.topic, top_k=args.top_k)
+    action = result.get("notion_action")
+    if action:
+        notify_draft(args.topic, action, result["notion_url"])
     status = result.get("status", "ok")
     if status == "error":
         print(f"\nFailed (run #{result['run_id']}): {result.get('error', '')}")

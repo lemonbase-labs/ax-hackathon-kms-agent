@@ -182,7 +182,7 @@ def run_pipeline(topic: str, top_k: int = 5) -> dict:
                 })
 
         with t.phase(6, "Writing to Notion") as p:
-            page_url = write_draft(
+            page_url, action = write_draft(
                 topic=topic,
                 keywords=kws["en"] + kws["ko"],
                 sources=[d["url"] for d in new_for_source],
@@ -211,6 +211,7 @@ def run_pipeline(topic: str, top_k: int = 5) -> dict:
             "run_id": t.run_id,
             "status": "drafted" if should_draft else "sources_only",
             "notion_url": page_url,
+            "notion_action": action,
             "new_for_source": len(new_for_source),
             "new_for_draft": len(new_for_draft),
             "draft_eligible_total": new_draft_eligible,

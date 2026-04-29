@@ -20,11 +20,14 @@ def write_draft(
     keywords: list[str],
     sources: list[str],
     draft: str | None,
-) -> str:
+) -> tuple[str, str | None]:
     """Upsert: same topic always lands in the same Notion row.
 
     draft=None: properties (Source/Keywords) only — body untouched.
     draft=str: properties + body fully replaced with the new draft.
+
+    Returns (page_url, action) where action is 'created' / 'updated' / None.
+    action is None when the draft body did not change (sources-only writes).
     """
     notion = Client(auth=os.environ["NOTION_TOKEN"])
     db_meta = notion.databases.retrieve(database_id=os.environ["NOTION_DB_ID"])
@@ -56,7 +59,8 @@ def write_draft(
         if draft is not None:
             _replace_page_body(notion, page_id, _to_blocks(draft))
         db.upsert_topic_page(topic, page_id)
-        return page["url"]
+        action = "updated" if draft is not None else None
+        return page["url"], action
 
     page = notion.pages.create(
         parent={"type": "data_source_id", "data_source_id": data_source_id},
@@ -71,7 +75,8 @@ def write_draft(
         children=_to_blocks(draft) if draft else [],
     )
     db.upsert_topic_page(topic, page["id"])
-    return page["url"]
+    action = "created" if draft else None
+    return page["url"], action
 
 
 def _to_blocks(text: str) -> list[dict]:

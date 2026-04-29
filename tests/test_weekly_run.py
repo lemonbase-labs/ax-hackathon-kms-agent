@@ -20,9 +20,10 @@ class TestWeeklyRunIsolation(unittest.TestCase):
         db.DB_PATH = self._orig_path
         Path(self._tmp.name).unlink(missing_ok=True)
 
+    @patch("weekly_run.notify_weekly_summary")
     @patch("weekly_run.fetch_active_topics")
     @patch("weekly_run.run_pipeline")
-    def test_one_failure_does_not_block_others(self, mock_run, mock_fetch):
+    def test_one_failure_does_not_block_others(self, mock_run, mock_fetch, _mock_notify):
         mock_fetch.return_value = [
             {"topic": "A", "notion_page_id": "pA"},
             {"topic": "B", "notion_page_id": "pB"},
@@ -45,9 +46,10 @@ class TestWeeklyRunIsolation(unittest.TestCase):
         self.assertEqual(db.get_topic_page("B")["notion_page_id"], "pB")
         self.assertEqual(db.get_topic_page("C")["notion_page_id"], "pC")
 
+    @patch("weekly_run.notify_weekly_summary")
     @patch("weekly_run.fetch_active_topics")
     @patch("weekly_run.run_pipeline")
-    def test_status_aggregation(self, mock_run, mock_fetch):
+    def test_status_aggregation(self, mock_run, mock_fetch, _mock_notify):
         mock_fetch.return_value = [
             {"topic": t, "notion_page_id": f"p{t}"} for t in "ABCD"
         ]

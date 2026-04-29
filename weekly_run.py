@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from kms import db
 from kms.notion_topics import fetch_active_topics
 from kms.pipeline import run_pipeline
+from kms.slack import notify_weekly_summary
 
 MAX_WORKERS = 3
 _print_lock = threading.Lock()
@@ -72,6 +73,7 @@ def run_weekly() -> dict:
         f"sources_only={summary['sources_only']} no_change={summary['no_change']} "
         f"skipped={summary['skipped']} error={summary['error']}"
     )
+    notify_weekly_summary(summary["results"])
     return summary
 
 

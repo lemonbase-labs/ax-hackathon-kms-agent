@@ -102,13 +102,14 @@ class TestUpsertFlow(unittest.TestCase):
             "url": "https://notion.so/page-abc",
         }
 
-        url = write_draft(
+        url, action = write_draft(
             topic="성과관리",
             keywords=["evaluation"],
             sources=["https://a", "https://b"],
             draft="hello",
         )
         self.assertEqual(url, "https://notion.so/page-abc")
+        self.assertEqual(action, "created")
         # topic_pages registered
         row = db.get_topic_page("성과관리")
         self.assertIsNotNone(row)
@@ -143,13 +144,14 @@ class TestUpsertFlow(unittest.TestCase):
             "has_more": False,
         }
 
-        url = write_draft(
+        url, action = write_draft(
             topic="성과관리",
             keywords=["evaluation", "review"],
             sources=["https://b", "https://c"],  # b is dup, c is new
             draft="updated draft",
         )
         self.assertEqual(url, "https://notion.so/page-abc")
+        self.assertEqual(action, "updated")
 
         # no new page created
         notion.pages.create.assert_not_called()
@@ -168,6 +170,56 @@ class TestUpsertFlow(unittest.TestCase):
         # body replaced: 2 blocks deleted, then appended with new draft
         self.assertEqual(notion.blocks.delete.call_count, 2)
         notion.blocks.children.append.assert_called_once()
+
+    @patch.dict("os.environ", {"NOTION_TOKEN": "x", "NOTION_DB_ID": "y"})
+    @patch("kms.notion_writer.Client")
+    def test_create_without_draft_returns_no_action(self, MockClient):
+        notion = MockClient.return_value
+        notion.databases.retrieve.return_value = {
+            "data_sources": [{"id": "ds-1"}]
+        }
+        notion.pages.create.return_value = {
+            "id": "page-abc",
+            "url": "https://notion.so/page-abc",
+        }
+
+        url, action = write_draft(
+            topic="성과관리",
+            keywords=["evaluation"],
+            sources=["https://a"],
+            draft=None,
+        )
+        self.assertEqual(url, "https://notion.so/page-abc")
+        self.assertIsNone(action)
+
+    @patch.dict("os.environ", {"NOTION_TOKEN": "x", "NOTION_DB_ID": "y"})
+    @patch("kms.notion_writer.Client")
+    def test_update_without_draft_returns_no_action(self, MockClient):
+        notion = MockClient.return_value
+        notion.databases.retrieve.return_value = {
+            "data_sources": [{"id": "ds-1"}]
+        }
+        db.upsert_topic_page("성과관리", "page-abc")
+        notion.pages.retrieve.return_value = {
+            "id": "page-abc",
+            "url": "https://notion.so/page-abc",
+            "properties": {
+                "Source": {"rich_text": [{"plain_text": "https://a"}]},
+                "키워드": {"multi_select": []},
+            },
+        }
+
+        url, action = write_draft(
+            topic="성과관리",
+            keywords=[],
+            sources=["https://b"],
+            draft=None,
+        )
+        self.assertEqual(url, "https://notion.so/page-abc")
+        self.assertIsNone(action)
+        # body untouched
+        notion.blocks.children.list.assert_not_called()
+        notion.blocks.children.append.assert_not_called()
 
 
 if __name__ == "__main__":
