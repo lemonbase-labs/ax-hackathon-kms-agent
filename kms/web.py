@@ -9,7 +9,14 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from kms import _prompts, db
+from kms.curate import propose_angles
+from kms.draft import synthesize
+from kms.filter import score_and_select
+from kms.keyword_extract import extract_keywords
 from kms.pipeline import run_pipeline
+
+# step name → (loader, runner returning a phase-payload-shaped dict)
+STEP_PHASE_NUM = {"keyword_extract": 1, "filter": 4, "curate": 5, "draft": 6}
 
 load_dotenv()
 
@@ -76,6 +83,56 @@ def run_detail(run_id: int):
     if not run:
         raise HTTPException(404, "run not found")
     return run
+
+
+def _run_step(step: str, data: dict) -> dict:
+    """Dispatch step to its function. Returns a phase-payload-shaped dict."""
+    if step == "keyword_extract":
+        kws = extract_keywords(data["topic"])
+        return {"en": kws["en"], "ko": kws["ko"]}
+    if step == "filter":
+        top = score_and_select(data["topic"], data["docs"], top_k=data["top_k"])
+        return {
+            "selected": [
+                {
+                    "url": d["url"],
+                    "title": d.get("title", ""),
+                    "score": d.get("score"),
+                    "score_detail": d.get("score_detail", {}),
+                }
+                for d in top
+            ],
+        }
+    if step == "curate":
+        angles = propose_angles(data["topic"], data["docs"])
+        return {"count": len(angles), "angles": angles}
+    if step == "draft":
+        text = synthesize(data["topic"], data["docs"], angle=data.get("angle"))
+        return {"chars": len(text), "draft": text, "angle": data.get("angle")}
+    raise HTTPException(400, f"unknown step: {step}")
+
+
+@app.post("/api/runs/{run_id}/steps/{step}/rerun")
+def rerun_step(run_id: int, step: str):
+    if step not in STEP_PHASE_NUM:
+        raise HTTPException(400, f"step must be one of {list(STEP_PHASE_NUM)}")
+    if not db.get_run(run_id):
+        raise HTTPException(404, "run not found")
+    data = db.get_step_input(run_id, step)
+    if data is None:
+        raise HTTPException(
+            404,
+            "no saved input for this step (only runs started after this feature shipped have snapshots)",
+        )
+    output = _run_step(step, data)
+    return {"step": step, "phase_num": STEP_PHASE_NUM[step], "output": output}
+
+
+@app.get("/api/runs/{run_id}/steps")
+def list_run_steps(run_id: int):
+    if not db.get_run(run_id):
+        raise HTTPException(404, "run not found")
+    return {"steps": db.list_step_inputs(run_id)}
 
 
 @app.get("/api/prompts")

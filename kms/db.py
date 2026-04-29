@@ -32,6 +32,18 @@ CREATE TABLE IF NOT EXISTS run_phases (
 );
 
 CREATE INDEX IF NOT EXISTS idx_phases_run ON run_phases(run_id);
+
+CREATE TABLE IF NOT EXISTS run_step_inputs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id INTEGER NOT NULL,
+  step_name TEXT NOT NULL,
+  input_json TEXT NOT NULL,
+  saved_at TEXT NOT NULL,
+  UNIQUE(run_id, step_name),
+  FOREIGN KEY (run_id) REFERENCES runs(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_step_inputs_run ON run_step_inputs(run_id);
 """
 
 
@@ -123,6 +135,38 @@ def get_run(run_id: int) -> dict | None:
             for p in phases
         ]
         return run
+
+
+def save_step_input(run_id: int, step_name: str, data: dict) -> None:
+    payload = json.dumps(data, ensure_ascii=False)
+    with connect() as c:
+        c.execute(
+            "INSERT INTO run_step_inputs (run_id, step_name, input_json, saved_at) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(run_id, step_name) DO UPDATE SET "
+            "input_json=excluded.input_json, saved_at=excluded.saved_at",
+            (run_id, step_name, payload, now()),
+        )
+
+
+def get_step_input(run_id: int, step_name: str) -> dict | None:
+    with connect() as c:
+        row = c.execute(
+            "SELECT input_json FROM run_step_inputs WHERE run_id=? AND step_name=?",
+            (run_id, step_name),
+        ).fetchone()
+        if not row:
+            return None
+        return json.loads(row["input_json"])
+
+
+def list_step_inputs(run_id: int) -> list[str]:
+    with connect() as c:
+        rows = c.execute(
+            "SELECT step_name FROM run_step_inputs WHERE run_id=? ORDER BY id",
+            (run_id,),
+        ).fetchall()
+        return [r["step_name"] for r in rows]
 
 
 def get_active_run() -> dict | None:

@@ -27,4 +27,9 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ content }),
     }),
+  rerunStep: (runId: number, step: string) =>
+    req<{ step: string; phase_num: number; output: Record<string, unknown> }>(
+      `/api/runs/${runId}/steps/${step}/rerun`,
+      { method: "POST" },
+    ),
 };

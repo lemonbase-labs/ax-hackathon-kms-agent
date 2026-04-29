@@ -120,7 +120,11 @@ export function RunCard({ run, defaultExpanded, pollMs }: Props) {
             </div>
           )}
           {focusPhase ? (
-            <PhaseDetail phase={focusPhase} />
+            <PhaseDetail
+              phase={focusPhase}
+              runId={run.id}
+              runStatus={run.status}
+            />
           ) : (
             <div className="text-sm text-subtle italic">phase 데이터 없음</div>
           )}

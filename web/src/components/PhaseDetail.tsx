@@ -1,7 +1,48 @@
+import { useState } from "react";
+import { api } from "../lib/api";
 import type { PhaseRecord } from "../types";
 
-export function PhaseDetail({ phase }: { phase: PhaseRecord }) {
+const RERUN_STEP_BY_PHASE: Record<number, string> = {
+  1: "keyword_extract",
+  4: "filter",
+  5: "curate",
+  6: "draft",
+};
+
+export function PhaseDetail({
+  phase,
+  runId,
+  runStatus,
+}: {
+  phase: PhaseRecord;
+  runId: number;
+  runStatus: string;
+}) {
   const p = phase.payload ?? {};
+  const step = RERUN_STEP_BY_PHASE[phase.phase_num];
+  const canRerun =
+    !!step && phase.status === "completed" && runStatus !== "running";
+
+  const [rerunOutput, setRerunOutput] = useState<Record<string, unknown> | null>(
+    null,
+  );
+  const [rerunning, setRerunning] = useState(false);
+  const [rerunError, setRerunError] = useState<string | null>(null);
+
+  const doRerun = async () => {
+    if (!step || rerunning) return;
+    setRerunning(true);
+    setRerunError(null);
+    try {
+      const res = await api.rerunStep(runId, step);
+      setRerunOutput(res.output);
+    } catch (e) {
+      setRerunError((e as Error).message);
+    } finally {
+      setRerunning(false);
+    }
+  };
+
   return (
     <div className="rounded-xl bg-bg border border-border p-5 space-y-3">
       <div className="flex items-center justify-between text-xs text-muted">
@@ -13,6 +54,40 @@ export function PhaseDetail({ phase }: { phase: PhaseRecord }) {
         </span>
       </div>
       <PayloadView phaseNum={phase.phase_num} payload={p} status={phase.status} />
+
+      {canRerun && (
+        <div className="pt-3 border-t border-border space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-subtle">
+              {step}.md를 수정한 뒤 같은 입력으로 이 단계만 재실행 (원본 무변경)
+            </span>
+            <button
+              onClick={doRerun}
+              disabled={rerunning}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent-soft text-accent hover:bg-accent hover:text-white disabled:opacity-40 transition"
+            >
+              {rerunning ? "실행 중…" : "↻ 현재 프롬프트로 재실행"}
+            </button>
+          </div>
+          {rerunError && (
+            <div className="text-xs text-danger font-mono whitespace-pre-wrap">
+              {rerunError}
+            </div>
+          )}
+          {rerunOutput && (
+            <div className="rounded-lg bg-surface border border-accent/30 p-4 space-y-2">
+              <div className="text-[11px] font-mono text-accent">
+                현재 프롬프트 결과 · 휘발 (새로고침 시 사라짐)
+              </div>
+              <PayloadView
+                phaseNum={phase.phase_num}
+                payload={rerunOutput}
+                status="completed"
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

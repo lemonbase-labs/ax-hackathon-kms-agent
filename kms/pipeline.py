@@ -1,7 +1,7 @@
 """Topic → Notion pipeline. Callable from CLI and FastAPI; records phases to SQLite."""
 from typing import Callable
 
-from kms import tracker
+from kms import db, tracker
 from kms.curate import propose_angles
 from kms.draft import synthesize
 from kms.extract import extract
@@ -39,6 +39,7 @@ def run_pipeline(
     t = tracker.start(topic)
     try:
         with t.phase(1, "Extracting keywords") as p:
+            db.save_step_input(t.run_id, "keyword_extract", {"topic": topic})
             kws = extract_keywords(topic)
             p.payload({"en": kws["en"], "ko": kws["ko"]})
 
@@ -77,6 +78,9 @@ def run_pipeline(
                 return {"run_id": t.run_id, "error": "All extractions failed"}
 
         with t.phase(4, f"Scoring top {top_k}") as p:
+            db.save_step_input(
+                t.run_id, "filter", {"topic": topic, "docs": docs, "top_k": top_k}
+            )
             top = score_and_select(topic, docs, top_k=top_k)
             p.payload({
                 "selected": [
@@ -91,6 +95,7 @@ def run_pipeline(
             })
 
         with t.phase(5, "Proposing angles") as p:
+            db.save_step_input(t.run_id, "curate", {"topic": topic, "docs": top})
             angles = propose_angles(topic, top)
             p.payload({"count": len(angles), "angles": angles})
             if angles:
@@ -99,6 +104,9 @@ def run_pipeline(
                 angle = None
 
         with t.phase(6, "Synthesizing draft") as p:
+            db.save_step_input(
+                t.run_id, "draft", {"topic": topic, "docs": top, "angle": angle}
+            )
             draft = synthesize(topic, top, angle=angle)
             p.payload({"chars": len(draft), "draft": draft, "angle": angle})
 
