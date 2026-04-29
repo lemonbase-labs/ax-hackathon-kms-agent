@@ -1,4 +1,4 @@
-import type { PhaseRecord } from "../types";
+import type { PhaseRecord, PhaseStatus } from "../types";
 import { PHASE_LABELS, TOTAL_PHASES } from "../types";
 
 interface Props {
@@ -7,6 +7,20 @@ interface Props {
   runStatus: "running" | "completed" | "failed";
   onSelect?: (n: number) => void;
   selected?: number | null;
+}
+
+function derivedStatus(
+  n: number,
+  currentPhase: number | null,
+  runStatus: Props["runStatus"],
+): PhaseStatus | null {
+  if (runStatus === "completed") return "completed";
+  if (currentPhase == null) return null;
+  if (n < currentPhase) return "completed";
+  if (n === currentPhase) {
+    return runStatus === "failed" ? "failed" : "running";
+  }
+  return null;
 }
 
 export function PhaseStepper({
@@ -22,10 +36,12 @@ export function PhaseStepper({
     <div className="flex items-center gap-1">
       {Array.from({ length: TOTAL_PHASES }, (_, i) => i + 1).map((n) => {
         const p = byNum.get(n);
-        const isCurrent = runStatus === "running" && currentPhase === n;
-        const isCompleted = p?.status === "completed";
-        const isFailed = p?.status === "failed";
-        const isPending = !p;
+        const status: PhaseStatus | null =
+          p?.status ?? derivedStatus(n, currentPhase, runStatus);
+        const isCurrent = runStatus === "running" && status === "running";
+        const isCompleted = status === "completed";
+        const isFailed = status === "failed";
+        const isPending = status == null;
         const isSelected = selected === n;
 
         return (
@@ -39,7 +55,7 @@ export function PhaseStepper({
               onSelect && !isPending ? "cursor-pointer" : "cursor-default",
             ].join(" ")}
           >
-            <div className="relative h-1.5 rounded-full overflow-hidden bg-border">
+            <div className="relative h-1 rounded-full overflow-hidden bg-border">
               <div
                 className={[
                   "absolute inset-0 rounded-full transition-all",
@@ -49,18 +65,18 @@ export function PhaseStepper({
                 ].join(" ")}
               />
             </div>
-            <div className="mt-2 flex items-center gap-1.5">
+            <div className="mt-1.5 flex items-center gap-1">
               <span
                 className={[
-                  "text-[11px] font-mono tabular-nums",
-                  isCompleted || isCurrent ? "text-ink" : "text-subtle",
+                  "text-[10px] font-mono tabular-nums",
+                  isCompleted || isCurrent ? "text-muted" : "text-subtle",
                 ].join(" ")}
               >
                 {String(n).padStart(2, "0")}
               </span>
               <span
                 className={[
-                  "text-xs truncate transition",
+                  "text-[11px] truncate transition",
                   isCurrent ? "text-ink font-semibold" : "",
                   isCompleted ? "text-muted" : "",
                   isPending ? "text-subtle" : "",
@@ -71,7 +87,7 @@ export function PhaseStepper({
                 {PHASE_LABELS[n]}
               </span>
               {isCurrent && p?.sub_progress && (
-                <span className="text-[11px] text-accent font-mono">
+                <span className="text-[10px] text-accent font-mono">
                   {p.sub_progress}
                 </span>
               )}

@@ -60,10 +60,7 @@ export default function Prompts() {
   return (
     <div className="space-y-6">
       <div>
-        <h1
-          className="text-4xl mb-2"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
+        <h1 className="text-4xl mb-2 font-bold tracking-tight text-ink">
           프롬프트
         </h1>
         <p className="text-sm text-muted">

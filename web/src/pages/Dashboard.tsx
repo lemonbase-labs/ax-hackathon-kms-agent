@@ -35,51 +35,51 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-10">
-      <section>
-        <h1
-          className="text-5xl mb-3 leading-tight"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          오늘의 <em className="text-accent not-italic">주제</em>는?
-        </h1>
-        <p className="text-muted mb-6">
-          주제어를 입력하면 키워드 추출부터 Notion 저장까지 7단계를 자동 실행합니다.
-        </p>
-        <form onSubmit={submit} className="flex gap-2">
-          <input
-            type="text"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder='예: "수습 평가", "people analytics"'
-            disabled={submitting || !!activeRun}
-            className="flex-1 px-5 py-4 text-lg bg-surface border border-border rounded-2xl focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent-soft transition disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={!topic.trim() || submitting || !!activeRun}
-            className="px-8 py-4 text-base font-semibold bg-accent text-white rounded-2xl hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition"
-          >
-            {submitting ? "시작 중…" : activeRun ? "다른 실행 진행 중" : "실행"}
-          </button>
-        </form>
-        {submitError && (
-          <div className="mt-3 text-sm text-danger">{submitError}</div>
-        )}
-      </section>
-
-      {activeRun && (
+      {activeRun ? (
         <section>
-          <SectionTitle>지금 진행 중</SectionTitle>
+          <SectionTitle count={1}>지금 진행 중</SectionTitle>
           <RunCard run={activeRun} defaultExpanded pollMs={2000} />
+          <p className="mt-3 text-xs text-subtle">
+            현재 실행이 끝나면 다음 주제를 시작할 수 있어요.
+          </p>
+        </section>
+      ) : (
+        <section>
+          <h1 className="text-4xl mb-2 leading-tight font-bold tracking-tight text-ink">
+            오늘의 <span className="text-accent">주제</span>는?
+          </h1>
+          <p className="text-sm text-muted mb-5">
+            주제어를 입력하면 키워드 추출부터 Notion 저장까지 7단계를 자동 실행합니다.
+          </p>
+          <form onSubmit={submit} className="flex gap-2">
+            <input
+              type="text"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder='예: "수습 평가", "people analytics"'
+              disabled={submitting}
+              className="flex-1 px-4 py-3 text-base bg-surface border border-border rounded-xl focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent-soft transition disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={!topic.trim() || submitting}
+              className="px-6 py-3 text-sm font-semibold bg-accent text-white rounded-xl hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition"
+            >
+              {submitting ? "시작 중…" : "실행"}
+            </button>
+          </form>
+          {submitError && (
+            <div className="mt-3 text-sm text-danger">{submitError}</div>
+          )}
         </section>
       )}
 
       <section>
-        <SectionTitle>이력</SectionTitle>
+        <SectionTitle count={pastRuns.length}>이력</SectionTitle>
         {pastRuns.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {pastRuns.map((r) => (
               <RunCard key={r.id} run={r} />
             ))}
@@ -90,10 +90,21 @@ export default function Dashboard() {
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionTitle({
+  children,
+  count,
+}: {
+  children: React.ReactNode;
+  count?: number;
+}) {
   return (
-    <h2 className="text-xs uppercase tracking-[0.2em] text-subtle mb-4">
-      {children}
+    <h2 className="mb-4 flex items-baseline gap-2">
+      <span className="text-lg font-semibold text-ink">{children}</span>
+      {typeof count === "number" && (
+        <span className="text-xs font-mono tabular-nums text-subtle">
+          {count}
+        </span>
+      )}
     </h2>
   );
 }
@@ -101,12 +112,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function EmptyState() {
   return (
     <div className="rounded-2xl border border-dashed border-border-strong px-6 py-16 text-center">
-      <div
-        className="text-4xl mb-3 opacity-30"
-        style={{ fontFamily: "var(--font-display)" }}
-      >
-        ∅
-      </div>
+      <div className="text-3xl mb-3 opacity-30 font-light">∅</div>
       <p className="text-sm text-muted">아직 실행 이력이 없습니다.</p>
     </div>
   );

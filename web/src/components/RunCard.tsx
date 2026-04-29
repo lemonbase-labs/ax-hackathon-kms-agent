@@ -48,44 +48,58 @@ export function RunCard({ run, defaultExpanded, pollMs }: Props) {
       : phases.find((p) => p.status === "running") ??
         phases[phases.length - 1];
 
+  const isRunning = run.status === "running";
+
   return (
-    <article className="rounded-2xl bg-surface border border-border overflow-hidden">
+    <article
+      className={[
+        "rounded-2xl bg-surface border overflow-hidden transition",
+        isRunning
+          ? "border-accent/30 shadow-[0_1px_2px_rgba(91,108,255,0.08),0_8px_24px_-12px_rgba(91,108,255,0.25)]"
+          : "border-border shadow-[0_1px_2px_rgba(26,27,38,0.04)]",
+      ].join(" ")}
+    >
       <header
-        className="px-6 py-4 flex items-start gap-4 cursor-pointer hover:bg-bg/50 transition"
+        className="px-5 py-3.5 flex items-center gap-3 cursor-pointer hover:bg-bg/40 transition"
         onClick={() => setExpanded((v) => !v)}
       >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <Badge status={run.status} />
-            <span className="text-xs text-subtle font-mono">
-              #{String(run.id).padStart(3, "0")}
-            </span>
-            <span className="text-xs text-subtle">{elapsed}</span>
-          </div>
-          <h3
-            className="text-xl truncate"
-            style={{ fontFamily: "var(--font-display)" }}
+        <Badge status={run.status} />
+        <h3 className="flex-1 min-w-0 text-base font-semibold truncate text-ink">
+          {run.topic}
+        </h3>
+        <span className="text-[11px] text-subtle font-mono tabular-nums">
+          #{String(run.id).padStart(3, "0")}
+        </span>
+        <span className="text-[11px] text-subtle tabular-nums">{elapsed}</span>
+        {run.notion_url && (
+          <a
+            href={run.notion_url}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-[11px] text-accent hover:underline whitespace-nowrap"
           >
-            {run.topic}
-          </h3>
-        </div>
-        <div className="flex items-center gap-3">
-          {run.notion_url && (
-            <a
-              href={run.notion_url}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-xs text-accent hover:underline"
-            >
-              Notion ↗
-            </a>
-          )}
-          <span className="text-subtle text-sm">{expanded ? "▴" : "▾"}</span>
-        </div>
+            Notion ↗
+          </a>
+        )}
+        <svg
+          aria-hidden
+          viewBox="0 0 20 20"
+          className={[
+            "w-4 h-4 text-subtle shrink-0 transition-transform",
+            expanded ? "rotate-180" : "",
+          ].join(" ")}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M5 7.5l5 5 5-5" />
+        </svg>
       </header>
 
-      <div className="px-6 pb-4">
+      <div className="px-5 pb-3">
         <PhaseStepper
           phases={phases}
           currentPhase={run.current_phase}
@@ -99,7 +113,7 @@ export function RunCard({ run, defaultExpanded, pollMs }: Props) {
       </div>
 
       {expanded && (
-        <div className="px-6 pb-6 space-y-3">
+        <div className="px-5 pb-5 pt-1 space-y-3">
           {run.error && (
             <div className="rounded-lg bg-danger-soft text-danger px-4 py-3 text-sm font-mono whitespace-pre-wrap">
               {run.error}

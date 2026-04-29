@@ -18,9 +18,9 @@
   --color-danger: #ef4444;
   --color-danger-soft: #fee2e2;
 
-  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
-  --font-display: "Fraunces", "Plus Jakarta Sans", Georgia, serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Pretendard Variable", Pretendard, system-ui, -apple-system, sans-serif;
+  --font-display: "Pretendard Variable", Pretendard, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Pretendard Variable", ui-monospace, monospace;
 }
 
 html,
@@ -35,7 +35,6 @@ body {
   font-family: var(--font-sans);
   margin: 0;
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: "ss01", "cv11";
 }
 
 @keyframes pulse-soft {
