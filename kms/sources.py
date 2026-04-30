@@ -55,22 +55,6 @@ def fetch_candidates(keywords_en: list[str]) -> list[dict]:
     return results
 
 
-def preferred_domains(max_domains: int = 30) -> list[str]:
-    """Preferred domains for Serper site: queries — RSS feeds + section URL domains."""
-    raw = [_normalize_domain(url) for url in _feeds.load().values()]
-    raw += [_normalize_domain(url) for url in SECTION_URLS.values()]
-    out: list[str] = []
-    seen: set[str] = set()
-    for d in raw:
-        if not d or d in seen:
-            continue
-        seen.add(d)
-        out.append(d)
-        if len(out) >= max_domains:
-            break
-    return out
-
-
 def filter_to_easy_domains(candidates: list[dict]) -> list[dict]:
     """Pass-through — no CSV filter anymore."""
     return candidates
