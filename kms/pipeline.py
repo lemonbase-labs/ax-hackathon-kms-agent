@@ -3,14 +3,24 @@
 Thresholds (source/draft/batch) are loaded from kms/config.json on every run.
 Score scale (filter.md): relevance(1-10) + credibility(1-10) = total 2-20.
 """
+from typing import Callable
+
 from kms import _config, db, seen_store, tracker
 from kms.draft import synthesize
 from kms.extract import extract
 from kms.filter import score_and_select
 from kms.keyword_extract import extract_keywords
 from kms.notion_writer import write_draft
-from kms.search import search as web_search
-from kms.sources import fetch_candidates
+from kms.search import search_many as web_search_many
+from kms.sources import (
+    apply_media_labels,
+    fetch_candidates,
+    filter_to_easy_domains,
+    preferred_domains,
+)
+from config import BROAD_KEYWORDS
+
+AngleSelector = Callable[[list[dict]], dict]
 
 
 def decide_action(
@@ -53,9 +63,43 @@ def _dedupe_by_url(*lists: list[dict]) -> list[dict]:
     return out
 
 
-def run_pipeline(topic: str, top_k: int = 5) -> dict:
-    """Execute pipeline. top_k is unused now (kept for CLI compatibility);
-    all new candidates are scored. Returns {run_id, status, ...}.
+def _queries_from_broad_keywords(topic: str, broad_keywords: list[dict], lang: str) -> list[str]:
+    """Pick relevant broad keywords by topic/category; lang is 'EN' or 'KO'."""
+    topic_l = topic.lower().strip()
+    lang_items = [k for k in broad_keywords if str(k.get("language", "")).upper() == lang]
+    if not lang_items:
+        return []
+
+    matched = []
+    for item in lang_items:
+        kw = str(item.get("keyword", "")).strip()
+        cat = str(item.get("category", "")).strip()
+        if not kw:
+            continue
+        hay = f"{kw} {cat}".lower()
+        if topic_l and topic_l in hay:
+            matched.append(kw)
+
+    seeds = matched if matched else [str(i.get("keyword", "")).strip() for i in lang_items]
+    out: list[str] = []
+    seen: set[str] = set()
+    for q in seeds:
+        if q and q not in seen:
+            seen.add(q)
+            out.append(q)
+        if len(out) >= 5:
+            break
+    return out
+
+
+def run_pipeline(
+    topic: str,
+    top_k: int = 5,
+    angle_selector: AngleSelector | None = None,
+) -> dict:
+    """Execute the full pipeline. Returns {run_id, notion_url} on success.
+
+    angle_selector: 앵글 후보 list → 선택된 1개 dict. None이면 첫 번째 자동 선택.
     """
     cfg = _config.load()
     t = tracker.start(topic)
@@ -63,13 +107,27 @@ def run_pipeline(topic: str, top_k: int = 5) -> dict:
         with t.phase(1, "Extracting keywords") as p:
             db.save_step_input(t.run_id, "keyword_extract", {"topic": topic})
             kws = extract_keywords(topic)
-            p.payload({"en": kws["en"], "ko": kws["ko"]})
+            broad_en = _queries_from_broad_keywords(topic, BROAD_KEYWORDS, lang="EN")
+            broad_ko = _queries_from_broad_keywords(topic, BROAD_KEYWORDS, lang="KO")
+            search_en = broad_en if broad_en else kws["en"]
+            search_ko = broad_ko if broad_ko else kws["ko"]
+            p.payload({
+                "en": kws["en"],
+                "ko": kws["ko"],
+                "broad_en": broad_en,
+                "broad_ko": broad_ko,
+                "search_en": search_en,
+                "search_ko": search_ko,
+            })
 
         with t.phase(2, "Fetching candidates") as p:
-            rss = fetch_candidates(kws["en"])
-            web_en = web_search(kws["en"][0], lang="en") if kws["en"] else []
-            web_ko = web_search(kws["ko"][0], lang="ko") if kws["ko"] else []
+            rss = fetch_candidates(search_en)
+            domains = preferred_domains()
+            web_en = web_search_many(search_en, lang="en", max_queries=3, max_pages=3)
+            web_ko = web_search_many(search_ko, lang="ko", max_queries=3, max_pages=3)
             all_candidates = _dedupe_by_url(rss, web_en, web_ko)
+            all_candidates = filter_to_easy_domains(all_candidates)
+            all_candidates = apply_media_labels(all_candidates)
             new_candidates = seen_store.filter_new(topic, all_candidates)
             for c in new_candidates:
                 seen_store.insert_discovered(
@@ -83,10 +141,18 @@ def run_pipeline(topic: str, top_k: int = 5) -> dict:
                 "rss_count": len(rss),
                 "serper_en_count": len(web_en),
                 "serper_ko_count": len(web_ko),
+                "serper_domain_count": len(domains),
                 "total_candidates": len(all_candidates),
                 "new_count": len(new_candidates),
                 "candidates": [
-                    {"title": c.get("title", ""), "url": c["url"], "source": c.get("source", "")}
+                    {
+                        "title": c.get("title", ""),
+                        "url": c["url"],
+                        "source": c.get("source", ""),
+                        "media_type": c.get("media_type", ""),
+                        "media_domain": c.get("media_domain", ""),
+                        "media_label": c.get("media_label", ""),
+                    }
                     for c in new_candidates
                 ],
             })
