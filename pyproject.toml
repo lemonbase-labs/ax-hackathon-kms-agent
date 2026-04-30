@@ -12,4 +12,6 @@ dependencies = [
     "feedparser>=6.0",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.27",
+    "playwright>=1.55.0",
+    "playwright-stealth>=1.0.6",
 ]
