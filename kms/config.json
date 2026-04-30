@@ -1,5 +1,5 @@
 {
   "source_threshold": 3,
-  "draft_threshold": 3,
+  "draft_threshold": 4,
   "draft_batch": 3
 }
