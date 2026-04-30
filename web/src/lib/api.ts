@@ -23,6 +23,10 @@ export const api = {
     }),
   deleteRun: (id: number) =>
     req<{ status: string }>(`/api/runs/${id}`, { method: "DELETE" }),
+  cancelRun: (id: number) =>
+    req<{ status: string; run_id: number }>(`/api/runs/${id}/cancel`, {
+      method: "POST",
+    }),
   listPrompts: () => req<{ prompts: Prompt[] }>("/api/prompts"),
   savePrompt: (name: string, content: string) =>
     req<Prompt>(`/api/prompts/${name}`, {

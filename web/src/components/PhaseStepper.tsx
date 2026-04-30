@@ -1,4 +1,4 @@
-import type { PhaseRecord, PhaseStatus } from "../types";
+import type { PhaseRecord, PhaseStatus, RunStatus } from "../types";
 import { CONDITIONAL_PHASES, PHASE_LABELS, TOTAL_PHASES } from "../types";
 
 type DerivedStatus = PhaseStatus | "skipped" | null;
@@ -6,7 +6,7 @@ type DerivedStatus = PhaseStatus | "skipped" | null;
 interface Props {
   phases: PhaseRecord[];
   currentPhase: number | null;
-  runStatus: "running" | "completed" | "failed";
+  runStatus: RunStatus;
   onSelect?: (n: number) => void;
   selected?: number | null;
   executedPhases?: number[];
@@ -29,7 +29,9 @@ function derivedStatus(
     return "completed";
   }
   if (n === currentPhase) {
-    return runStatus === "failed" ? "failed" : "running";
+    if (runStatus === "failed") return "failed";
+    if (runStatus === "cancelled") return null;
+    return "running";
   }
   return null;
 }

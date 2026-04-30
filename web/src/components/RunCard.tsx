@@ -10,9 +10,16 @@ interface Props {
   defaultExpanded?: boolean;
   pollMs?: number;
   onDelete?: (id: number) => void;
+  onCancel?: (id: number) => void;
 }
 
-export function RunCard({ run, defaultExpanded, pollMs, onDelete }: Props) {
+export function RunCard({
+  run,
+  defaultExpanded,
+  pollMs,
+  onDelete,
+  onCancel,
+}: Props) {
   const [expanded, setExpanded] = useState(!!defaultExpanded);
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [selectedPhase, setSelectedPhase] = useState<number | null>(null);
@@ -63,6 +70,18 @@ export function RunCard({ run, defaultExpanded, pollMs, onDelete }: Props) {
     }
   };
 
+  const handleCancel = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onCancel) return;
+    if (!confirm(`"${run.topic}" 실행을 취소할까요?`)) return;
+    try {
+      await api.cancelRun(run.id);
+      onCancel(run.id);
+    } catch (err) {
+      alert(`취소 실패: ${(err as Error).message}`);
+    }
+  };
+
   return (
     <article
       className={[
@@ -94,6 +113,28 @@ export function RunCard({ run, defaultExpanded, pollMs, onDelete }: Props) {
           >
             Notion ↗
           </a>
+        )}
+        {isRunning && onCancel && (
+          <button
+            type="button"
+            onClick={handleCancel}
+            aria-label="실행 취소"
+            title="실행 취소"
+            className="text-subtle hover:text-danger p-1 -m-1 rounded transition"
+          >
+            <svg
+              aria-hidden
+              viewBox="0 0 20 20"
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M5 5l10 10M15 5L5 15" />
+            </svg>
+          </button>
         )}
         {!isRunning && onDelete && (
           <button

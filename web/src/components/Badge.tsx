@@ -4,6 +4,7 @@ const styles: Record<RunStatus | "pending", string> = {
   running: "bg-warning-soft text-warning",
   completed: "bg-success-soft text-success",
   failed: "bg-danger-soft text-danger",
+  cancelled: "bg-bg text-muted",
   pending: "bg-bg text-subtle",
 };
 
@@ -11,6 +12,7 @@ const labels: Record<RunStatus | "pending", string> = {
   running: "진행 중",
   completed: "완료",
   failed: "실패",
+  cancelled: "취소됨",
   pending: "대기",
 };
 

@@ -1,4 +1,4 @@
-export type RunStatus = "running" | "completed" | "failed";
+export type RunStatus = "running" | "completed" | "failed" | "cancelled";
 export type PhaseStatus = "running" | "completed" | "failed";
 
 export interface RunSummary {

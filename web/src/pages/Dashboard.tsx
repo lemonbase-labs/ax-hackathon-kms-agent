@@ -38,7 +38,15 @@ export default function Dashboard() {
       {activeRun ? (
         <section>
           <SectionTitle count={1}>지금 진행 중</SectionTitle>
-          <RunCard run={activeRun} defaultExpanded pollMs={2000} />
+          <RunCard
+            run={activeRun}
+            defaultExpanded
+            pollMs={2000}
+            onCancel={() => {
+              active.refetch();
+              runs.refetch();
+            }}
+          />
           <p className="mt-3 text-xs text-subtle">
             현재 실행이 끝나면 다음 주제를 시작할 수 있어요.
           </p>
