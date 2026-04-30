@@ -76,6 +76,21 @@ def active_run():
     return {"run": db.get_active_run()}
 
 
+@app.post("/api/runs/{run_id}/cancel")
+def cancel_run(run_id: int):
+    run = db.get_run(run_id)
+    if not run:
+        raise HTTPException(404, "run not found")
+    if run["status"] != "running":
+        raise HTTPException(400, f"run is not running (status: {run['status']})")
+    db.finish_run(run_id, "cancelled", error="cancelled by user")
+    try:
+        _run_lock.release()
+    except RuntimeError:
+        pass
+    return {"status": "cancelled", "run_id": run_id}
+
+
 @app.get("/api/runs/{run_id}")
 def run_detail(run_id: int):
     run = db.get_run(run_id)
