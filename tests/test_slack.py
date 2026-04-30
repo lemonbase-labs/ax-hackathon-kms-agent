@@ -25,7 +25,7 @@ class TestNotifyDraft(unittest.TestCase):
         self.assertEqual(args[0], "https://hooks.slack.com/services/T/B/x")
         text = kwargs["json"]["text"]
         self.assertIn("성과관리", text)
-        self.assertIn("작성됨", text)
+        self.assertIn("작성되었습니다", text)
         self.assertIn("https://notion.so/abc", text)
 
     @patch.dict("os.environ", {"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/T/B/x"})
@@ -36,7 +36,7 @@ class TestNotifyDraft(unittest.TestCase):
         notify_draft("성과관리", "updated", "https://notion.so/abc")
 
         text = mock_post.call_args.kwargs["json"]["text"]
-        self.assertIn("업데이트됨", text)
+        self.assertIn("갱신되었습니다", text)
 
     @patch.dict("os.environ", {"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/T/B/x"})
     @patch("kms.slack.requests.post")
