@@ -15,7 +15,6 @@ from kms.sources import (
     fetch_candidates,
     filter_to_easy_domains,
 )
-from config import BROAD_KEYWORDS
 
 
 def decide_action(
@@ -58,35 +57,6 @@ def _dedupe_by_url(*lists: list[dict]) -> list[dict]:
     return out
 
 
-def _queries_from_broad_keywords(topic: str, broad_keywords: list[dict], lang: str) -> list[str]:
-    """Pick relevant broad keywords by topic/category; lang is 'EN' or 'KO'."""
-    topic_l = topic.lower().strip()
-    lang_items = [k for k in broad_keywords if str(k.get("language", "")).upper() == lang]
-    if not lang_items:
-        return []
-
-    matched = []
-    for item in lang_items:
-        kw = str(item.get("keyword", "")).strip()
-        cat = str(item.get("category", "")).strip()
-        if not kw:
-            continue
-        hay = f"{kw} {cat}".lower()
-        if topic_l and topic_l in hay:
-            matched.append(kw)
-
-    seeds = matched if matched else [str(i.get("keyword", "")).strip() for i in lang_items]
-    out: list[str] = []
-    seen: set[str] = set()
-    for q in seeds:
-        if q and q not in seen:
-            seen.add(q)
-            out.append(q)
-        if len(out) >= 5:
-            break
-    return out
-
-
 def run_pipeline(topic: str, top_k: int = 5) -> dict:
     """Execute the full pipeline. Returns {run_id, notion_url} on success."""
     cfg = _config.load()
@@ -95,15 +65,12 @@ def run_pipeline(topic: str, top_k: int = 5) -> dict:
         with t.phase(1, "Extracting keywords") as p:
             db.save_step_input(t.run_id, "keyword_extract", {"topic": topic})
             kws = extract_keywords(topic)
-            broad_en = _queries_from_broad_keywords(topic, BROAD_KEYWORDS, lang="EN")
-            broad_ko = _queries_from_broad_keywords(topic, BROAD_KEYWORDS, lang="KO")
-            search_en = broad_en if broad_en else kws["en"]
-            search_ko = broad_ko if broad_ko else kws["ko"]
+            # 주제어의 동의어(영문 2개, 국문 2개)로만 검색
+            search_en = kws["en"]
+            search_ko = kws["ko"]
             p.payload({
                 "en": kws["en"],
                 "ko": kws["ko"],
-                "broad_en": broad_en,
-                "broad_ko": broad_ko,
                 "search_en": search_en,
                 "search_ko": search_ko,
             })
